@@ -17,10 +17,9 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.AccessControl;
-using System.IO;
 using System.Security.Principal;
 
-#region Cert Stuff
+#region Cert Generation 
 const int NotBeforeSkew = -2; // 2 Hour skew for the notBefore value
 
 static X509Certificate2 CreateRootCertificate(string caName)
@@ -72,9 +71,31 @@ static X509Certificate2 CreateServerCertificate(string subjectName, X509Certific
 
 #endregion
 
-#region ACL
+#region Add Certs to Cert Store
+
+static void AddRootCaCertToCertStore(string certPath)
+{
+    var certificate = new X509Certificate2(certPath);
+    var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
+    store.Open(OpenFlags.ReadWrite);
+    store.Add(certificate);
+    store.Close();
+}
+static void AddServerCertToMachineCertStore(string certPath, string pfxPwd)
+{
+    var cert = new X509Certificate2(certPath, pfxPwd, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet);
+    var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
+    store.Open(OpenFlags.ReadWrite);
+    store.Add(cert);
+    store.Close();
+}
+
+#endregion
+
+#region Set ACL on Server Cert Private Key
 // Grant SQL Server service account access to the certificate files
-static void SetPrivateKeyPermissions(string thumbprint, string userName)
+/*
+ * static void SetPrivateKeyPermissions(string thumbprint, string userName)
 {
     // Open the certificate store and find the certificate
     var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
@@ -102,20 +123,28 @@ static void SetPrivateKeyPermissions(string thumbprint, string userName)
     }
 
     // Get the private key file path
-    string keyPath = ((RSACryptoServiceProvider)certificate.PrivateKey).CspKeyContainerInfo.UniqueKeyContainerName;
-    string fullKeyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Microsoft\\Crypto\\RSA\\MachineKeys", keyPath);
+    //var keyPath = certificate.PrivateKey.
+    //string fullKeyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Microsoft\\Crypto\\RSA\\MachineKeys", keyPath);
 
-    var fi = new FileInfo(fullKeyPath);
-    var ac = fi.GetAccessControl();
-    ac.AddAccessRule(new FileSystemAccessRule(@"NT Service\MSSQLServer", FileSystemRights.Read, AccessControlType.Allow));
-    fi.SetAccessControl(ac);
+    //var fi = new FileInfo(fullKeyPath);
+    //var ac = fi.GetAccessControl();
+    //ac.AddAccessRule(new FileSystemAccessRule(@"NT Service\MSSQLServer", FileSystemRights.Read, AccessControlType.Allow));
+    //fi.SetAccessControl(ac);
 
-    Console.WriteLine($"Permissions updated for {userName} on private key: {fullKeyPath}");
+    //Console.WriteLine($"Permissions updated for {userName} on private key: {fullKeyPath}");
 }
-
+*/
 #endregion
 
 #region Main
+
+WindowsPrincipal principal = new WindowsPrincipal(WindowsIdentity.GetCurrent());
+if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
+{
+    Console.WriteLine("You must run this program as an administrator.");
+    return;
+}
+
 // Create and save the Root CA certificate
 var rootCACertFilename = "RootCA.cer";
 var rootCertificate = CreateRootCertificate("Mikehow Experimental Root CA");
@@ -129,6 +158,10 @@ var pfxPwd = Console.ReadLine();
 var serverCertFilename = "ServerCert.pfx";
 var serverCertWithPrivateKey = CreateServerCertificate(hostName, rootCertificate);
 File.WriteAllBytes(serverCertFilename, serverCertWithPrivateKey.Export(X509ContentType.Pfx, pfxPwd));
+
+// Add certs to cert store
+AddRootCaCertToCertStore(rootCACertFilename);
+AddServerCertToMachineCertStore(serverCertFilename, pfxPwd);
 
 // Set ACL on the private key
 //var thumbPrint = serverCertWithPrivateKey.Thumbprint;
