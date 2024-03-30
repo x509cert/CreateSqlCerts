@@ -1,12 +1,12 @@
 ﻿/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Create Root CA Certificate and SQL Server Certificate
+// Create Root CA Certificate and SQL Server Certificate, signed with the CA certificate
 // Written by Michael Howard, Azure Data Platform, Microsoft Corp.
 // 
 // Code to setup a Certificate Authority using .NET
 // This is for *experimental purposes only* so you don't need to use self-signed certificates.
 // So long as the root CA cert is installed in the Root CA store there is no need to use 
 // TrustServerCert=true in SQL connection strings.
-// // This mimics a PKI hierarchy without setting up a PKI hierarchy!
+// This mimics a PKI hierarchy without setting up a PKI hierarchy!
 //
 // Background info:
 // https://learn.microsoft.com/en-US/sql/database-engine/configure-windows/configure-sql-server-encryption
@@ -122,4 +122,23 @@ AddServerCertToMachineCertStore(serverCertFilename, pfxPwd);
 Console.WriteLine("Success!");
 Console.WriteLine($"Root CA cert is in {rootCACertFilename} and User->TrustedRoot Cert Store");
 Console.WriteLine($"Server cert and private key is in {serverCertFilename} encrypted with {pfxPwd}, and in the Machine->My Cert Store");
+#endregion
+
+#region Next Steps
+Console.WriteLine("Next steps.");
+Console.WriteLine("1. SET KEY ACL");
+Console.WriteLine(" You need to set the ACL on the server's private key so SQL Server can read the key.");
+Console.WriteLine(" Open the certlm.msc, the Local Machine cert store tool.");
+Console.WriteLine($" Expand Personal, Certificates and right click the cert in question, issued to '{hotName}'");
+Console.WriteLine(" Select All Tasks and then click Manage Private Keys.");
+Console.WriteLine(" Click Add to add the SQL Server service account (probably 'NT Service\\MSSQLServer' and give it Read permission.");
+
+Console.WriteLine("2. CONFIGURE SQL SERVER");
+Console.WriteLine(" You need to configure SQL Server to use the certificate and private key.");
+Console.WriteLine(" Open SQL Server Configuration Manager.");
+Console.WriteLine(" Go to SQL Server Network Configuration, Protocols for MSSQLSERVER, right click and select Properties.");
+Console.WriteLine(" Go to the Certificate tab and select the certificate you just installed from the drop list.");
+
+Console.WriteLine("3. RESTART SQL SERVER"); 
+Console.WriteLine(" You need to restart SQL Server for the changes to take effect.");
 #endregion
