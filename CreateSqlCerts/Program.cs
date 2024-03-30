@@ -168,6 +168,6 @@ AddServerCertToMachineCertStore(serverCertFilename, pfxPwd);
 //SetPrivateKeyPermissions(thumbPrint, "NT Service\\MSSQLServer");
 
 Console.WriteLine("Success!");
-Console.WriteLine($"Root CA cert is in {rootCACertFilename}");
-Console.WriteLine($"Server cert and private key is in {serverCertFilename} encrypted with {pfxPwd}");
+Console.WriteLine($"Root CA cert is in {rootCACertFilename} and User->TrustedRoot Cert Store");
+Console.WriteLine($"Server cert and private key is in {serverCertFilename} encrypted with {pfxPwd}, and in the Machine->My Cert Store");
 #endregion
