@@ -71,7 +71,7 @@ static X509Certificate2 CreateServerCertificate(string subjectName, X509Certific
 
 #endregion
 
-#region Add Certs to Cert Store
+#region Add Certs to Cert Respective Store
 
 static void AddRootCaCertToCertStore(string certPath)
 {
@@ -90,50 +90,6 @@ static void AddServerCertToMachineCertStore(string certPath, string pfxPwd)
     store.Close();
 }
 
-#endregion
-
-#region Set ACL on Server Cert Private Key
-// Grant SQL Server service account access to the certificate files
-/*
- * static void SetPrivateKeyPermissions(string thumbprint, string userName)
-{
-    // Open the certificate store and find the certificate
-    var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
-    store.Open(OpenFlags.ReadOnly);
-    X509Certificate2? certificate = null;
-    foreach (var cert in store.Certificates)
-    {
-        if (cert.Thumbprint.Equals(thumbprint, StringComparison.OrdinalIgnoreCase))
-        {
-            certificate = cert;
-            break;
-        }
-    }
-
-    if (certificate == null)
-    {
-        Console.WriteLine("Certificate not found.");
-        return;
-    }
-
-    if (!certificate.HasPrivateKey)
-    {
-        Console.WriteLine("Certificate does not have a private key.");
-        return;
-    }
-
-    // Get the private key file path
-    //var keyPath = certificate.PrivateKey.
-    //string fullKeyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Microsoft\\Crypto\\RSA\\MachineKeys", keyPath);
-
-    //var fi = new FileInfo(fullKeyPath);
-    //var ac = fi.GetAccessControl();
-    //ac.AddAccessRule(new FileSystemAccessRule(@"NT Service\MSSQLServer", FileSystemRights.Read, AccessControlType.Allow));
-    //fi.SetAccessControl(ac);
-
-    //Console.WriteLine($"Permissions updated for {userName} on private key: {fullKeyPath}");
-}
-*/
 #endregion
 
 #region Main
@@ -162,10 +118,6 @@ File.WriteAllBytes(serverCertFilename, serverCertWithPrivateKey.Export(X509Conte
 // Add certs to cert store
 AddRootCaCertToCertStore(rootCACertFilename);
 AddServerCertToMachineCertStore(serverCertFilename, pfxPwd);
-
-// Set ACL on the private key
-//var thumbPrint = serverCertWithPrivateKey.Thumbprint;
-//SetPrivateKeyPermissions(thumbPrint, "NT Service\\MSSQLServer");
 
 Console.WriteLine("Success!");
 Console.WriteLine($"Root CA cert is in {rootCACertFilename} and User->TrustedRoot Cert Store");
