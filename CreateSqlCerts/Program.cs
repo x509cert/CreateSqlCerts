@@ -23,6 +23,7 @@ using System.Security.Principal;
 #region Important Global Names
 var hostName = Dns.GetHostName();   // used as the CN for the server certificate
 var rootCertificateName = $"{hostName} Experimental Root CA"; // used as the CN for the root CA certificate
+var serverCertFriendlyName = $"SQL Server TLS cert for {hostName}";
 #endregion
 
 #region Cert Generation 
@@ -79,7 +80,7 @@ static X509Certificate2 CreateServerCertificate(string subjectName, X509Certific
 
 #region Add Certs to Cert Respective Store
 
-static void AddRootCaCertToCertStore(string certPath)
+void AddRootCaCertToCertStore(string certPath)
 {
     using var certificate = new X509Certificate2(certPath);
     var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
@@ -87,11 +88,14 @@ static void AddRootCaCertToCertStore(string certPath)
     store.Add(certificate);
     store.Close();
 }
-static void AddServerCertToMachineCertStore(string certPath, string pfxPwd)
+void AddServerCertToMachineCertStore(string certPath, string pfxPwd)
 {
     using var cert = new X509Certificate2(certPath, pfxPwd, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet);
+    cert.FriendlyName = serverCertFriendlyName;
+
     var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
     store.Open(OpenFlags.ReadWrite);
+
     store.Add(cert);
     store.Close();
 }
@@ -192,20 +196,20 @@ Console.ReadKey();
 
 Console.WriteLine("\n\n**NEXT STEPS**");
 Console.WriteLine("1. SET KEY ACL");
-Console.WriteLine(" You need to set the ACL on the server's private key so SQL Server can read the key.");
-Console.WriteLine(" Open certlm.msc which is the Local Machine cert store tool.");
-Console.WriteLine($" Expand Personal, Certificates and right click the cert in question, issued to '{hostName}'");
-Console.WriteLine(" Select All Tasks and then click Manage Private Keys.");
-Console.WriteLine(" Click Add to add the SQL Server service account (probably 'NT Service\\MSSQLServer' and give it Read permission.");
-Console.WriteLine(" You can check the service account name is correct by clicking Check Names.");
+Console.WriteLine(" - You need to set the ACL on the server's private key so SQL Server can read the key.");
+Console.WriteLine(" - Open certlm.msc which is the Local Machine cert store tool.");
+Console.WriteLine($" - Expand Personal, Certificates and right click the cert in question, issued to '{hostName}'");
+Console.WriteLine(" - Select All Tasks and then click Manage Private Keys.");
+Console.WriteLine(" - Click Add to add the SQL Server service account (probably 'NT Service\\MSSQLServer' and give it Read permission.");
+Console.WriteLine(" - You can check the service account name is correct by clicking Check Names.");
 
 Console.WriteLine("\n2. CONFIGURE SQL SERVER");
-Console.WriteLine(" You need to configure SQL Server to use the certificate and private key.");
-Console.WriteLine(" Open SQL Server Configuration Manager.");
-Console.WriteLine(" Expand SQL Server Network Configuration, select Protocols for MSSQLSERVER, right click and select Properties.");
-Console.WriteLine($" Go to the Certificate tab and select the certificate you just installed '{hostName}' from the drop list.");
-Console.WriteLine(" Click OK to save the changes.");
+Console.WriteLine(" - You need to configure SQL Server to use the certificate and private key.");
+Console.WriteLine(" - Open SQL Server Configuration Manager.");
+Console.WriteLine(" - Expand SQL Server Network Configuration, select Protocols for MSSQLSERVER, right click and select Properties.");
+Console.WriteLine($" - Go to the Certificate tab and select the certificate you just installed '{serverCertFriendlyName}' from the drop list.");
+Console.WriteLine(" - Click OK to save the changes.");
 
 Console.WriteLine("\n3. RESTART SQL SERVER"); 
-Console.WriteLine(" You need to restart SQL Server for the changes to take effect.");
+Console.WriteLine(" - You need to restart SQL Server for the changes to take effect.");
 #endregion
