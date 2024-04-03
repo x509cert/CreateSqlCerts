@@ -157,7 +157,7 @@ if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
     return;
 }
 
-Console.WriteLine("Do you want to remove old root and server certificates? (y/n)");
+Console.WriteLine("Do you want to remove old root and server certificates created by this tool? (y/n)");
 var response = Console.ReadKey(true).KeyChar.ToString().ToLower();
 if (response[0] == 'y')
 {
