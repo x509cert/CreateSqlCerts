@@ -8,6 +8,8 @@
 // TrustServerCert=true in SQL connection strings.
 // This mimics a PKI hierarchy without setting up a PKI hierarchy!
 //
+// NOTE: This code is lacking error handling, this is to make the code a little clearer.
+//
 // Background info:
 // https://learn.microsoft.com/en-US/sql/database-engine/configure-windows/configure-sql-server-encryption
 //
@@ -18,12 +20,17 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 
+#region Important Global Names
+var hostName = Dns.GetHostName();
+var rootCertificateName = $"{hostName} Experimental Root CA";
+#endregion
+
 #region Cert Generation 
 const int NotBeforeSkew = -2; // 2 Hour skew for the notBefore value
 
 static X509Certificate2 CreateRootCertificate(string caName)
 {
-    var rsa = RSA.Create(4096);
+    using var rsa = RSA.Create(4096);
 
     var subject = new X500DistinguishedName($"CN={caName}");
     var request = new CertificateRequest(subject, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -40,7 +47,7 @@ static X509Certificate2 CreateRootCertificate(string caName)
 
 static X509Certificate2 CreateServerCertificate(string subjectName, X509Certificate2 issuerCertificate)
 {
-    var rsa = RSA.Create(2048);
+    using var rsa = RSA.Create(2048);
 
     var subject = new X500DistinguishedName($"CN={subjectName}");
     var request = new CertificateRequest(subject, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -74,7 +81,7 @@ static X509Certificate2 CreateServerCertificate(string subjectName, X509Certific
 
 static void AddRootCaCertToCertStore(string certPath)
 {
-    var certificate = new X509Certificate2(certPath);
+    using var certificate = new X509Certificate2(certPath);
     var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
     store.Open(OpenFlags.ReadWrite);
     store.Add(certificate);
@@ -82,7 +89,7 @@ static void AddRootCaCertToCertStore(string certPath)
 }
 static void AddServerCertToMachineCertStore(string certPath, string pfxPwd)
 {
-    var cert = new X509Certificate2(certPath, pfxPwd, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet);
+    using var cert = new X509Certificate2(certPath, pfxPwd, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet);
     var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
     store.Open(OpenFlags.ReadWrite);
     store.Add(cert);
@@ -91,7 +98,57 @@ static void AddServerCertToMachineCertStore(string certPath, string pfxPwd)
 
 #endregion
 
+#region Remove old certs
+static void RemovePreviousRootCertificate(string certificateName)
+{
+    int count = 0;
+    using (var rootStore = new X509Store(StoreName.Root, StoreLocation.CurrentUser))
+    {
+
+        rootStore.Open(OpenFlags.ReadWrite);
+        foreach (var cert in rootStore.Certificates)
+        {
+            if (cert.Subject.Contains($"CN={certificateName}"))
+            {
+                var hash = cert.Thumbprint;
+                rootStore.Remove(cert);
+                Console.WriteLine($"Removed root cert: '{certificateName}', thumbprint: {hash}");
+                count++;
+            }
+        }
+        rootStore.Close();
+    }
+    if (count == 0) { Console.WriteLine($"No Root CA certificates named '{certificateName}' to remove."); }
+}
+
+static void RemovePreviousSignedCertificates(string issuerName)
+{
+    int count = 0;
+    using (var myStore = new X509Store(StoreName.My, StoreLocation.LocalMachine))
+    {
+        myStore.Open(OpenFlags.ReadWrite);
+        foreach (var cert in myStore.Certificates)
+        {
+            if (cert.Issuer.Contains($"CN={issuerName}"))
+            {
+                var hash = cert.Thumbprint;
+                myStore.Remove(cert);
+                Console.WriteLine($"Removed cert signed by: '{issuerName}', thumbprint: {hash}");
+                count++;
+            }
+        }
+        myStore.Close();
+    }
+
+    if (count==0) { Console.WriteLine($"No certificates issued by '{issuerName}' to remove."); }
+}
+
+#endregion
+
 #region Main
+
+Console.Clear();
+Console.WriteLine("Create Root CA and SQL Server server Certificates.\nWatch out for important CertStore dialog prompts.");
 
 WindowsPrincipal principal = new WindowsPrincipal(WindowsIdentity.GetCurrent());
 if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
@@ -100,15 +157,21 @@ if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
     return;
 }
 
+Console.WriteLine("Do you want to remove old root and server certificates? (y/n)");
+var response = Console.ReadKey(true).KeyChar.ToString().ToLower();
+if (response[0] == 'y')
+{
+    RemovePreviousRootCertificate(rootCertificateName);
+    RemovePreviousSignedCertificates(rootCertificateName);
+}
+
 // Create and save the Root CA certificate
 var rootCACertFilename = "RootCA.cer";
-var rootCertificate = CreateRootCertificate("Mikehow Experimental Root CA");
+var rootCertificate = CreateRootCertificate(rootCertificateName);
 File.WriteAllBytes(rootCACertFilename, rootCertificate.Export(X509ContentType.Cert));
 
 // Create and save the Server certificate
-var hostName = Dns.GetHostName();
-
-Console.Write("Enter PFX password: ");
+Console.Write("Enter PFX password for server cert: ");
 var pfxPwd = Console.ReadLine();
 var serverCertFilename = "ServerCert.pfx";
 var serverCertWithPrivateKey = CreateServerCertificate(hostName, rootCertificate);
@@ -118,12 +181,15 @@ File.WriteAllBytes(serverCertFilename, serverCertWithPrivateKey.Export(X509Conte
 AddRootCaCertToCertStore(rootCACertFilename);
 AddServerCertToMachineCertStore(serverCertFilename, pfxPwd);
 
-Console.WriteLine("Success!");
+Console.WriteLine("\n**Success!**");
 Console.WriteLine($"Root CA cert is in {rootCACertFilename} and User->TrustedRoot Cert Store");
 Console.WriteLine($"Server cert and private key is in {serverCertFilename} encrypted with {pfxPwd}, and in the Machine->My Cert Store");
 #endregion
 
 #region Next Steps
+Console.WriteLine("\nPress any key for Next Steps");
+Console.ReadKey();
+
 Console.WriteLine("\n\n**NEXT STEPS**");
 Console.WriteLine("1. SET KEY ACL");
 Console.WriteLine(" You need to set the ACL on the server's private key so SQL Server can read the key.");
