@@ -8,7 +8,7 @@
 // TrustServerCert=true in SQL connection strings.
 // This mimics a PKI hierarchy without setting up a PKI hierarchy!
 //
-// NOTE: This code is lacking error handling, this is to make the code a little clearer.
+// NOTE: This code lacks error handling, this is to make the code a little clearer.
 //
 // Background info:
 // https://learn.microsoft.com/en-US/sql/database-engine/configure-windows/configure-sql-server-encryption
