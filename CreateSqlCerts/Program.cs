@@ -193,7 +193,7 @@ Console.ReadKey();
 Console.WriteLine("\n\n**NEXT STEPS**");
 Console.WriteLine("1. SET KEY ACL");
 Console.WriteLine(" You need to set the ACL on the server's private key so SQL Server can read the key.");
-Console.WriteLine(" Open the certlm.msc, the Local Machine cert store tool.");
+Console.WriteLine(" Open certlm.msc which is the Local Machine cert store tool.");
 Console.WriteLine($" Expand Personal, Certificates and right click the cert in question, issued to '{hostName}'");
 Console.WriteLine(" Select All Tasks and then click Manage Private Keys.");
 Console.WriteLine(" Click Add to add the SQL Server service account (probably 'NT Service\\MSSQLServer' and give it Read permission.");
@@ -202,8 +202,9 @@ Console.WriteLine(" You can check the service account name is correct by clickin
 Console.WriteLine("\n2. CONFIGURE SQL SERVER");
 Console.WriteLine(" You need to configure SQL Server to use the certificate and private key.");
 Console.WriteLine(" Open SQL Server Configuration Manager.");
-Console.WriteLine(" Go to SQL Server Network Configuration, Protocols for MSSQLSERVER, right click and select Properties.");
-Console.WriteLine(" Go to the Certificate tab and select the certificate you just installed from the drop list.");
+Console.WriteLine(" Expand SQL Server Network Configuration, select Protocols for MSSQLSERVER, right click and select Properties.");
+Console.WriteLine($" Go to the Certificate tab and select the certificate you just installed '{hostName}' from the drop list.");
+Console.WriteLine(" Click OK to save the changes.");
 
 Console.WriteLine("\n3. RESTART SQL SERVER"); 
 Console.WriteLine(" You need to restart SQL Server for the changes to take effect.");
