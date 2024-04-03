@@ -21,8 +21,8 @@ using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 
 #region Important Global Names
-var hostName = Dns.GetHostName();
-var rootCertificateName = $"{hostName} Experimental Root CA";
+var hostName = Dns.GetHostName();   // used as the CN for the server certificate
+var rootCertificateName = $"{hostName} Experimental Root CA"; // used as the CN for the root CA certificate
 #endregion
 
 #region Cert Generation 
